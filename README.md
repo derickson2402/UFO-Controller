@@ -4,6 +4,13 @@ This summer, we want to build custom racing drones. Eventually, we'd like to hoo
 
 Right now everything is in very early stages, so check back later for more!
 
+## Included Files
+
+Folder | Description
+---|---|
+```Arduino-ISP```     | Copied from Arduino built-in example 11. Allows an Uno to program a Nano over ISP
+```Wiring-Diagrams``` | Sub-Directory of PCB designs, such as main-board for drone
+
 ## Resources
 
 - https://create.arduino.cc/projecthub/akarsh98/diy-arduino-based-quadcopter-drone-948153
