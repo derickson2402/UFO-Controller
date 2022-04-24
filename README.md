@@ -11,6 +11,16 @@ Folder | Description
 ```Arduino-ISP```     | Copied from Arduino built-in example 11. Allows an Uno to program a Nano over ISP
 ```Wiring-Diagrams``` | Sub-Directory of PCB designs, such as main-board for drone
 
+## Configuring VS Code IDE
+
+If you are like me, you really hate the default Arduino IDE and you would rather use VS Code. To do this:
+
+1. Install the Arduino VS Code extension
+2. Choose AVR programmer and Arduino Nano board
+3. In ```c_cpp_properties.json```, update ```compilerPath```, ```includePath```, and ```forcedInclude``` so your machine's section matches that of the Arduino (basically tell intellisense to use the Arduino's compiler)
+4. Add ```USBCON``` to ```defines``` in ```c_cpp_properties.json```
+4. If you need 3rd-party libraries, put them in ```src``` and symlink ```src``` to the root folder for your code and update your includes accordingly
+
 ## Resources
 
 - https://create.arduino.cc/projecthub/akarsh98/diy-arduino-based-quadcopter-drone-948153
