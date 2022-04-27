@@ -3,7 +3,7 @@
 This summer, we want to build custom racing drones.
 Eventually, we'd like to hook up FPV cameras, GPS units, and some other fun gizmos so that we can do cool stuff like FPV racing, autonomous path following with GPS, and smart object detection and wayfinding using computer vision.
 
-Right now everything is in very early stages, so check back later for more!
+Much of the transmitter code is adapted from [akarsh98](https://github.com/akarsh98) on GitHub. Thanks akarsh!
 
 ## Included Files
 
@@ -11,8 +11,9 @@ Folder | Description
 ---|---|
 ```Arduino-ISP```     | Copied from Arduino built-in example 11. Allows an Uno to program a Nano over ISP
 ```Wiring-Diagrams``` | Sub-Directory of PCB designs, such as main-board for drone
-```toxiclibs```       | Download of Toxiclibs ```geom``` and ```processing``` libraries
 ```Hardware-Tests```  | Various programs for verifying that electronic components are working
+```MultiWii```        | Flight control software from [MultiWii.com](http://www.multiwii.com/).
+```MultiWii-GUI```    | Configuration GUI for '''MultiWii'''
 
 ## Hardware Tests and Visualization with Processing
 
