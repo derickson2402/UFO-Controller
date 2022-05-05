@@ -9,11 +9,11 @@ Much of the transmitter code is adapted from [akarsh98](https://github.com/akars
 
 Folder | Description
 ---|---|
-```Arduino-ISP```     | Copied from Arduino built-in example 11. Allows an Uno to program a Nano over ISP
-```Wiring-Diagrams``` | Sub-Directory of PCB designs, such as main-board for drone
-```Hardware-Tests```  | Various programs for verifying that electronic components are working
-```MultiWii```        | Flight control software from [MultiWii.com](http://www.multiwii.com/).
-```MultiWii-GUI```    | Configuration GUI for '''MultiWii'''
+```Arduino-ISP```     | Copied from Arduino IDE built-in example 11. Allows an Uno to program a Nano over ISP
+```Wiring-Diagrams``` | PCB designs and board pinouts for transceiver, flight controller, etc for KiCad 6.0. Includes KiCad files for MPU breakout board.
+```Hardware-Tests```  | Various programs for verifying that individual electronic components are working
+```MultiWii```        | Flight control software from [MultiWii.com](http://www.multiwii.com/)
+```MultiWii-GUI```    | Configuration GUI for ```MultiWii```
 
 ## Hardware Tests and Visualization with Processing
 
