@@ -14,6 +14,7 @@ Folder | Description
 ```Hardware-Tests```  | Various programs for verifying that individual electronic components are working
 ```MultiWii```        | Flight control software from [MultiWii.com](http://www.multiwii.com/)
 ```MultiWii-GUI```    | Configuration GUI for ```MultiWii```
+```Transceiver```     | Instructions for using pair of Arduino as radio transmitter to drone
 
 ## Hardware Tests and Visualization with Processing
 
@@ -41,3 +42,4 @@ To do this:
 - https://www.instructables.com/DJi-F450-Quadcopter-How-to-Build-Home-Built/
 - http://www.rctutor.org/the-parts-list.html
 - [Read-only Amazon link for parts](https://www.amazon.com/hz/wishlist/ls/1BKLT1DHMK0VX?ref_=wl_share)
+- [PPM communication via Arduino](https://quadmeup.com/generate-ppm-signal-with-arduino/)
