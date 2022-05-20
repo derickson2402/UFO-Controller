@@ -10,8 +10,8 @@ Description
 	Radio transceiver for controlling UFO drone, adapted from akarsh98 and
 	DzikuVx on GitHub. Before deploying, the parameters below must be defined
 	according to your setup (you can likely use the defaults and just change
-	IS_RECEIVER). Also, debugging output can be enabled, but you may want to
-	take a look at the corresponding Hardware-Tests files also.
+	IS_RECEIVER). Debugging output can be enabled, but you may want to take a
+	look at the corresponding Hardware-Tests files when doing this.
 
 	Please see the README in the 'Transceiver' folder for more.
 
@@ -21,7 +21,7 @@ Project URL
 ##############################################################################*/
 
 // You must set the following items before deploying. See README for help
-// #define DEBUG_ON                         // Print debug output (turns off PPM)
+// #define DEBUG_ON                      // Print debug output (turns off PPM)
 #define IS_RECEIVER                      // Leave for RX, comment out for TX
 #define PIPE_NUM         0xE8E8F0F0E1LL  // 40 bit 'Address' the radios use
 #define CHANNEL_24G      120             // Channel 0-125 to use on 2.4GHz band
@@ -56,7 +56,7 @@ struct UFODataPacket {
 };
 
 /* Translate 8-bit packet from Arduino to PPM array of [1000,2000]µs channels */
-void UFOtoPPM(UFODataPacket& data, int* ppm);
+void UFOtoPPM(UFODataPacket& data, volatile int* ppm);
 
 /* Configure serial communication to the Arduino running MultiWii controller.
  * Uses PPM over PIN_PPM */
@@ -69,9 +69,12 @@ void configRadio(RF24& radio);
 /*############################################################################*/
 
 RF24 radio(PIN_RADIO_CE, PIN_RADIO_CSN); // Reference to nRF24 radio
-int ppm[12];     // Globally readable PPM packet to MultiWii
+volatile int ppm[12];     // Globally readable PPM packet to MultiWii
 UFODataPacket data;       // Datapacket sent Arduino -> Arduino over nRF24 radio
 unsigned long lastComm;   // Time in ms of last packet received from transmitter
+// Note we need lastComm since receiver will continue broadcasting PPM data to
+// MultiWii forever, whether new packets are received or not, so MultiWii
+// timeouts will not do anything. Therefore receiver handles timeouts. See #4
 
 void setup() {
 	configRadio(radio);
@@ -91,6 +94,7 @@ void loop() {
 			lastComm = millis();
 		}
 		// Check if we possibly lost connection after ~1 second
+		// See #4, we need a safer way to handle comm loss
 		if (millis() - lastComm > 1000) {
 			data.clear();
 			UFOtoPPM(data, ppm);
@@ -112,12 +116,14 @@ void loop() {
 void configRadio(RF24& radio) {
 	radio.begin();
 	// We don't want ACK since we are broadcasting packets quickly and won't
-	// re-send them (think UDP)
+	// re-send them (think UDP on IP networks)
 	radio.setAutoAck(false);
 	radio.setDataRate(RF24_250KBPS);
 	radio.setPayloadSize(sizeof(UFODataPacket));
 	radio.setPALevel(RF24_PA_MAX);
 
+	// Receiver listens, transmitter talks. Also receiver will try to recognize
+	// lost signal
 	#if defined(IS_RECEIVER)
 		radio.openReadingPipe(1, PIPE_NUM);
 		radio.startListening();
@@ -128,21 +134,28 @@ void configRadio(RF24& radio) {
 	#endif
 }
 
-void UFOtoPPM(UFODataPacket& data, int* ppm) {
+void UFOtoPPM(UFODataPacket& data, volatile int* ppm) {
 	// UFODataPacket uses 8-bit data but PPM needs pulses of duration in µs.
-	// Store results to temp location so we can use as few CPU cycles as
-	// possible when updating ppm, since we must temporarily block interrupts
-	// or risk sending bogus data. This could be made faster by 
-	int temp[6];
-	temp[0] = map(data.throttle, 0, 255, 1000, 2000);
-	temp[1] = map(data.yaw,      0, 255, 1000, 2000);
-	temp[2] = map(data.pitch,    0, 255, 1000, 2000);
-	temp[3] = map(data.roll,     0, 255, 1000, 2000);
-	temp[4] = map(data.AUX1,     0, 1,   1000, 2000);
-	temp[5] = map(data.AUX2,     0, 1,   1000, 2000);
+	// Store results to temp location in memory, moves ppm to point to it, then
+	// copies over data. This means we block interrupts from as few CPU cycles
+	// as possible when updating ppm, while ensuring we don't send bogus data.
+	int ppmAux[6];     // Temporary data block for new PPM packet
+	volatile int* ppmPtr = ppm; // Ptr back to original PPM packet
+	ppmAux[0] = map(data.throttle, 0, 255, 1000, 2000);
+	ppmAux[1] = map(data.yaw,      0, 255, 1000, 2000);
+	ppmAux[2] = map(data.pitch,    0, 255, 1000, 2000);
+	ppmAux[3] = map(data.roll,     0, 255, 1000, 2000);
+	ppmAux[4] = map(data.AUX1,     0, 1,   1000, 2000);
+	ppmAux[5] = map(data.AUX2,     0, 1,   1000, 2000);
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-		// TODO: implement this using pointers to improve speed (would take 2 CPU cycles instead of ~26). See #3
-		memcpy(ppm, temp, sizeof(temp[0])*6);
+		ppm = ppmAux; // Look at new memory while we copy over
+	}
+	// Copy over actual data
+	for (uint8_t i = 0; i < 6; ++i) {
+		ppm[i] = ppmAux[i];
+	}
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		ppm = ppmPtr; // All done, ppmAux will go out of scope now
 	}
 }
 
@@ -152,8 +165,7 @@ void configPPM() {
 	#endif
 
 	// Set 'safe' values on boot since we use interrupts for PPM comm
-	data.throttle = data.AUX1 = data.AUX2 = 0;
-	data.yaw = data.pitch = data.roll = 127;
+	data.clear();
 	UFOtoPPM(data, ppm);
 
 	// Configure pin connecting to MultiWii
@@ -163,11 +175,11 @@ void configPPM() {
 	// Taken from this guide on Arduino PPM implementation:
 	// https://quadmeup.com/generate-ppm-signal-with-arduino/
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
-		TCCR1A = 0; // set entire TCCR1 register to 0
+		TCCR1A = 0;              // set entire TCCR1 register to 0
 		TCCR1B = 0;
-		OCR1A = 100; // compare match register
+		OCR1A = 100;             // compare match register
 		TCCR1B |= (1 << WGM12);  // turn on CTC mode
-		TCCR1B |= (1 << CS11);  // 8 prescaler: 0,5 microseconds at 16mhz
+		TCCR1B |= (1 << CS11);   // 8 prescaler: 0,5 microseconds at 16mhz
 		TIMSK1 |= (1 << OCIE1A); // enable timer compare interrupt
 	}
 }

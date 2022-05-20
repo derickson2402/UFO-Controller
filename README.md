@@ -1,11 +1,15 @@
 # UFO-Controller
 
-This summer, we want to build custom racing drones.
+This summer, several of us wanted to build some quadcopter drones (what can I say, we're a house full of bored engineers :smiley:).
 Eventually, we'd like to hook up FPV cameras, GPS units, and some other fun gizmos so that we can do cool stuff like FPV racing, autonomous path following with GPS, and smart object detection and wayfinding using computer vision.
+Currently the project is in early stages, but I am documenting all the software as I go and when we have everything working I will make sure to include assembly instructions as well.
 
-Much of the transmitter code is adapted from [akarsh98](https://github.com/akarsh98) on GitHub. Thanks akarsh!
+Much of the transmitter code is extended from [akarsh98](https://github.com/akarsh98) on GitHub and [this guide on PPM via Arduino](https://quadmeup.com/generate-ppm-signal-with-arduino/). Thanks akarsh and Pawel!
 
 ## Included Files
+
+Some of the code used here is from projects from almost a decade ago, so I made sure to grab a copy of all the libraries and such that are used here.
+Each folder contains some component of either testing/building the drone, and each comes with its own README and any dependencies.
 
 Folder | Description
 ---|---|
@@ -16,11 +20,12 @@ Folder | Description
 ```MultiWii-GUI```    | Configuration GUI for ```MultiWii```
 ```Transceiver```     | Instructions for using pair of Arduino as radio transmitter to drone
 
-## Hardware Tests and Visualization with Processing
+## Testing/Verifying Hardware
 
 In the ```Hardware-Tests``` folder are some basic programs for testing that various components are working.
-Some of these require Processing]() (and the included ```toxiclibs``` libraries).
-Simply install the program and then open the relevant ```.pde``` file to run the test.
+There is another README in the folder which will walk you through everything.
+I highly recommend you verify all of your hardware is working correctly BEFORE trying everything together, since there is nothing worse than spending hours on a "software" bug that doesn't actually exist.
+Plus if you're like me you bought the cheapest stuff you could find and there's a good chance it won't all work right :smiley:.
 
 ## Configuring VS Code IDE
 
@@ -31,7 +36,7 @@ To do this:
 2. Choose AVR programmer and Arduino Nano board
 3. In ```c_cpp_properties.json```, update ```compilerPath```, ```includePath```, and ```forcedInclude``` so your machine's section matches that of the Arduino (basically tell intellisense to use the Arduino's compiler)
 4. Add ```USBCON``` to ```defines``` in ```c_cpp_properties.json```
-5. If you need 3rd-party libraries, put them in ```src``` and symlink ```src``` to the root folder for your code and update your includes accordingly
+5. If you need 3rd-party libraries, put them in ```src``` in the root of this repo and symlink ```src``` in your code root folder to it (Arduino compiler should recognize the ```src``` folder automatically)
 
 ## Resources
 
