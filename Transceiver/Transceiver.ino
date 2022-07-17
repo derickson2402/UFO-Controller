@@ -42,6 +42,11 @@ Project URL
 #if defined(DEBUG_ON)
 	#include <printf.h>
 #endif
+#if !defined(IS_RECEIVER)
+	#include <I2Cdev.h>
+	#include <MPU6050.h>
+	#include "Wire.h"
+#endif
 
 /* Data packet to be transmitted. nRF24L01 chip can only send 32 bytes at a
  * time, so we get up to 32 8 bit channels. Currently 6 are used, corresponding
@@ -58,6 +63,11 @@ struct UFODataPacket {
 /* Translate 8-bit packet from Arduino to PPM array of [1000,2000]µs channels */
 void UFOtoPPM(UFODataPacket& data, volatile int* ppm);
 
+/* Get gyroscope readings and bundle them up into a packet */
+#if !defined(IS_RECEIVER)
+void IMUtoUFO(MPU6050& gyro, UFODataPacket& data);
+#endif
+
 /* Configure serial communication to the Arduino running MultiWii controller.
  * Uses PPM over PIN_PPM */
 void configPPM();
@@ -69,12 +79,17 @@ void configRadio(RF24& radio);
 /*############################################################################*/
 
 RF24 radio(PIN_RADIO_CE, PIN_RADIO_CSN); // Reference to nRF24 radio
-volatile int ppm[12];     // Globally readable PPM packet to MultiWii
 UFODataPacket data;       // Datapacket sent Arduino -> Arduino over nRF24 radio
 unsigned long lastComm;   // Time in ms of last packet received from transmitter
 // Note we need lastComm since receiver will continue broadcasting PPM data to
 // MultiWii forever, whether new packets are received or not, so MultiWii
-// timeouts will not do anything. Therefore receiver handles timeouts. See #4
+// timeouts will not do anything. Therefore receiver handles timeouts.
+// TODO: See #4
+#if defined(IS_RECEIVER)
+	volatile int ppm[12]; // Globally readable PPM packet to MultiWii
+#else
+	MPU6050 gyro;         // Gyroscope acting as a control joystick
+#endif
 
 void setup() {
 	configRadio(radio);
@@ -83,6 +98,9 @@ void setup() {
 		Serial.begin(115200);
 		printf_begin();
 		radio.printPrettyDetails();
+	#endif
+	#if !defined(IS_RECEIVER)
+		Wire.begin();
 	#endif
 }
 
@@ -94,7 +112,7 @@ void loop() {
 			lastComm = millis();
 		}
 		// Check if we possibly lost connection after ~1 second
-		// See #4, we need a safer way to handle comm loss
+		// TODO: See #4, we need a safer way to handle comm loss
 		if (millis() - lastComm > 1000) {
 			data.clear();
 			UFOtoPPM(data, ppm);
@@ -158,6 +176,12 @@ void UFOtoPPM(UFODataPacket& data, volatile int* ppm) {
 		ppm = ppmPtr; // All done, ppmAux will go out of scope now
 	}
 }
+
+#if !defined(IS_RECEIVER)
+void IMUtoUFO(MPU6050& gyro, UFODataPacket& data) {
+	// TODO: implement state-space tracker to turn gyro into Wii-remote of sorts
+}
+#endif
 
 void configPPM() {
 	#if !defined(IS_RECEIVER)
