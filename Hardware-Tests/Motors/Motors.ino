@@ -12,8 +12,8 @@ Description
 	work with any 5V servo-style speed controller.
 
 	E-Stop button will override and shut down controllers. To resume
-	functionality, hit the Arduino reset button
-
+	functionality, press button again. Once calibration is finished, use
+	potentiometer to control motor speed.
 
 Project URL
 	https://github.com/derickson2402/UFO-Controller.git
@@ -22,7 +22,8 @@ Project URL
 #include <Servo.h>
 
 // Select here the pins to use for the motor controllers and the e-stop button
-#define ESTOP_PIN   2  // This can only be 2 or 3 on UNO boards
+#define ESTOP_PIN   2  // Must be an interrupt pin, either 2 or 3 on UNO boards
+#define SPEED_PIN   A0 // Must be analog read pin with 1024 bit resolution
 #define LED_PIN     7
 #define MOTOR_PIN_A 8
 #define MOTOR_PIN_B 9
@@ -39,8 +40,13 @@ Project URL
 // Run a calibration sequence which sets the ESC high then low. Takes 10 seconds
 void calibrate();
 
-// Sets the motor outputs to the specified value
+// Sets the motor outputs to the specified value, unless e-stop is engaged
 void setMotors(int speed);
+
+// Immediately set motors to low. Disconnecting the signal won't necessarily
+// stop them from moving, so this will hopefully be the safest option. Press
+// again to re-enable the motors
+void eStopInterrupt();
 
 /*############################################################################*/
 
@@ -48,49 +54,56 @@ Servo motorA;
 Servo motorB;
 Servo motorC;
 Servo motorD;
-bool estop;
+volatile bool estop;  // Is the e-stop triggered?
 
 void setup() {
-	Serial.begin(9600);
-	delay(1000);
-	Serial.println("Press enter to calibrate the controllers");
-	while(!Serial.available());
-	Serial.read();
+	// Set up E-Stop
+	pinMode(ESTOP_PIN, INPUT_PULLUP);
+	estop = false;
+	attachInterrupt(digitalPinToInterrupt(ESTOP_PIN), eStopInterrupt, FALLING);
+	pinMode(LED_PIN, OUTPUT);
+	digitalWrite(LED_PIN, HIGH);
 
 	// Connect to the ESC then run calibration
-	pinMode(LED_PIN, OUTPUT);
-	estop = false;
-	digitalWrite(LED_PIN, HIGH);
+	Serial.begin(9600);
 	motorA.attach(MOTOR_PIN_A);
 	motorB.attach(MOTOR_PIN_B);
 	motorC.attach(MOTOR_PIN_C);
 	motorD.attach(MOTOR_PIN_D);
+	delay(5000);
 	calibrate();
 }
 
 void loop() {
-	// Receiving int 0-10 from Motors.pde. Scale to a PWM speed and update ESC
-	int speed = PWM_MIN;
-	if (Serial.available() > 0) {
-		speed = Serial.parseInt();
-	}
-	double speedAsPWM = (double)((PWM_MAX - PWM_MIN) * speed) / 10.0;
-	setMotors(PWM_MIN + (int)(speedAsPWM));
+	// Calculate set speed of motor controllers from potentiometer
+	int speed = analogRead(SPEED_PIN);
+	int speedSetPoint = map(speed, 0, 1024, PWM_MIN, PWM_MAX);
+
+	// Set the speed of the motor controllers
+	setMotors(speedSetPoint);
+	delay(500);
 }
 
 void calibrate() {
 	Serial.println("Starting calibration routine, will take 10 seconds...");
-	setMotors(PWM_MAX);
-	delay(5000);
-	setMotors(PWM_MIN);
-	delay(5000);
+	// Use for loops like this so that E-Stop will work
+	for (int i = 0; i < 10; ++i) {
+		setMotors(PWM_MAX);
+		delay(500);
+	}
+	for (int i = 0; i < 10; ++i) {
+		setMotors(PWM_MIN);
+		delay(500);
+	}
 	Serial.println("Finished calibration, now in manual control mode.");
 }
 
 void setMotors(int speed) {
 	if (estop) {
 		speed = PWM_MIN;
+		Serial.println("Warning: E-Stop engaged");
 	}
+	Serial.print("Setting motors to: "); Serial.println(speed);
 	motorA.writeMicroseconds(speed);
 	motorB.writeMicroseconds(speed);
 	motorC.writeMicroseconds(speed);
@@ -98,6 +111,6 @@ void setMotors(int speed) {
 }
 
 void eStopInterrupt() {
-	estop = true;
-	digitalWrite(LED_PIN, LOW);
+	estop = !estop;
+	digitalWrite(LED_PIN, (estop ? LOW : HIGH));
 }
