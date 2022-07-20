@@ -11,9 +11,9 @@ Description
 	Brushless motors, connected with Readytosky 2-4S 40A Brushless ESC. Should
 	work with any 5V servo-style speed controller.
 
-	E-Stop button will override and shut down controllers. To resume
-	functionality, press button again. Once calibration is finished, use
-	potentiometer to control motor speed.
+	Red LED on means that motors are armed. E-Stop button will override and
+	shut down controllers. To resume functionality, press button again. Once
+	calibration is finished, use potentiometer to control motor speed.
 
 Project URL
 	https://github.com/derickson2402/UFO-Controller.git
@@ -22,16 +22,20 @@ Project URL
 #include <Servo.h>
 
 // Select here the pins to use for the motor controllers and the e-stop button
-#define ESTOP_PIN   2  // Must be an interrupt pin, either 2 or 3 on UNO boards
-#define SPEED_PIN   A0 // Must be analog read pin with 1024 bit resolution
-#define LED_PIN     7
-#define MOTOR_PIN_A 8
-#define MOTOR_PIN_B 9
+#define ESTOP_PIN   2  // Must be an interrupt pin, either 2 or 3 on UNO
+                       // boards. Pullup resistor is configured in code, such
+                       // that pushing should bring voltage to 0V
+#define SPEED_PIN   A0 // Must be analog read pin with 1024 bit resolution for
+                       // analog potentiometer
+#define LED_PIN     7  // Red LED indicating if motors armed
+#define MOTOR_PIN_A 8  // Each ESC should be connected to 5V and the signal wire
+#define MOTOR_PIN_B 9  // should go to the specified pin
 #define MOTOR_PIN_C 10
 #define MOTOR_PIN_D 11
 
 // You probably should leave these values alone. If you do need to change them,
-// you will also have to alter the Multiwii PWM code
+// you will also have to alter the Multiwii PWM code. Both are represented as
+// time lengths in microseconds
 #define PWM_MIN 1000
 #define PWM_MAX 2000
 
@@ -70,7 +74,7 @@ void setup() {
 	motorB.attach(MOTOR_PIN_B);
 	motorC.attach(MOTOR_PIN_C);
 	motorD.attach(MOTOR_PIN_D);
-	delay(5000);
+	delay(10000);
 	calibrate();
 }
 
@@ -81,7 +85,7 @@ void loop() {
 
 	// Set the speed of the motor controllers
 	setMotors(speedSetPoint);
-	delay(500);
+	delay(250);
 }
 
 void calibrate() {
@@ -89,11 +93,11 @@ void calibrate() {
 	// Use for loops like this so that E-Stop will work
 	for (int i = 0; i < 10; ++i) {
 		setMotors(PWM_MAX);
-		delay(500);
+		delay(250);
 	}
 	for (int i = 0; i < 10; ++i) {
 		setMotors(PWM_MIN);
-		delay(500);
+		delay(250);
 	}
 	Serial.println("Finished calibration, now in manual control mode.");
 }
@@ -102,8 +106,9 @@ void setMotors(int speed) {
 	if (estop) {
 		speed = PWM_MIN;
 		Serial.println("Warning: E-Stop engaged");
+	} else {
+		Serial.print("Setting motors to: "); Serial.println(speed);
 	}
-	Serial.print("Setting motors to: "); Serial.println(speed);
 	motorA.writeMicroseconds(speed);
 	motorB.writeMicroseconds(speed);
 	motorC.writeMicroseconds(speed);
