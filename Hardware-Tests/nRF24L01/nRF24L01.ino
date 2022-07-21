@@ -18,7 +18,6 @@ Project URL
 ##############################################################################*/
 
 #include <SPI.h>
-#include <nRF24L01.h>
 #include <RF24.h>
 
 // Create a unique pipe in. The transmitter must use the same unique code
