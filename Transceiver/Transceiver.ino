@@ -1,7 +1,7 @@
 /*##############################################################################
 
 Date
-	05 May 2022
+	21 July 2022
 
 Written By
 	Dan Erickson (dan@danerick.com)
@@ -35,38 +35,25 @@ Project URL
 
 /*############################################################################*/
 
+#include "Joystick.h"
 #include <SPI.h>
-#include <nRF24L01.h>
 #include <RF24.h>
 #include <util/atomic.h>
 #if defined(DEBUG_ON)
 	#include <printf.h>
 #endif
 #if !defined(IS_RECEIVER)
-	#include <I2Cdev.h>
-	#include <MPU6050.h>
-	#include "Wire.h"
+	#include "src/I2Cdev.h"
+	#include "src/MPU6050.h"
+	#include <Wire.h>
 #endif
 
-/* Data packet to be transmitted. nRF24L01 chip can only send 32 bytes at a
- * time, so we get up to 32 8 bit channels. Currently 6 are used, corresponding
- * to first 6 channels in MultiWii/config.h */
-struct UFODataPacket {
-	byte throttle, yaw, pitch, roll, AUX1, AUX2;
-	/* Reset the values to neutral defaults */
-	void clear() {
-		throttle = AUX1 = AUX2 = 0;
-		yaw = pitch = roll = 127;
-	}
-};
 
-/* Translate 8-bit packet from Arduino to PPM array of [1000,2000]µs channels */
+/* Translate 8-bit packet from Arduino to PPM array of [1000,2000]µs channels.
+ * Updates PPM packet in memory so PPM pin will automatically send data to
+ * MultiWii */
 void UFOtoPPM(UFODataPacket& data, volatile int* ppm);
 
-/* Get gyroscope readings and bundle them up into a packet */
-#if !defined(IS_RECEIVER)
-void IMUtoUFO(MPU6050& gyro, UFODataPacket& data);
-#endif
 
 /* Configure serial communication to the Arduino running MultiWii controller.
  * Uses PPM over PIN_PPM */
@@ -88,18 +75,19 @@ unsigned long lastComm;   // Time in ms of last packet received from transmitter
 #if defined(IS_RECEIVER)
 	volatile int ppm[12]; // Globally readable PPM packet to MultiWii
 #else
-	MPU6050 gyro;         // Gyroscope acting as a control joystick
+	Joystick * joystick = new SimpleFLR(data);  // Joystick to pull values from
 #endif
 
 void setup() {
 	configRadio(radio);
-	configPPM();
 	#if defined(DEBUG_ON)
 		Serial.begin(115200);
 		printf_begin();
 		radio.printPrettyDetails();
 	#endif
-	#if !defined(IS_RECEIVER)
+	#if defined(IS_RECEIVER)
+		configPPM(ppm);
+	#else
 		Wire.begin();
 	#endif
 }
@@ -118,10 +106,8 @@ void loop() {
 			UFOtoPPM(data, ppm);
 		}
 	#else
-		// Get current gyro values and transmit them to receiver
-		// TODO: implement gyroscope reading. See #1
-		data.clear();
-		UFOtoPPM(data, ppm);
+		// Get joystick values and transmit them to receiver
+		joystick->update();
 		radio.write(&data, sizeof(UFODataPacket));
 	#endif
 	#if defined(DEBUG_ON)
@@ -177,13 +163,7 @@ void UFOtoPPM(UFODataPacket& data, volatile int* ppm) {
 	}
 }
 
-#if !defined(IS_RECEIVER)
-void IMUtoUFO(MPU6050& gyro, UFODataPacket& data) {
-	// TODO: implement state-space tracker to turn gyro into Wii-remote of sorts
-}
-#endif
-
-void configPPM() {
+void configPPM(volatile int* ppm) {
 	#if !defined(IS_RECEIVER)
 		return;
 	#endif
