@@ -57,7 +57,7 @@ void UFOtoPPM(UFODataPacket& data, volatile int* ppm);
 
 /* Configure serial communication to the Arduino running MultiWii controller.
  * Uses PPM over PIN_PPM */
-void configPPM();
+void configPPM(volatile int* ppm);
 
 /* Configure the radio for transmission. Settings must be the same for both
  * radios to communicate */
@@ -108,9 +108,17 @@ void loop() {
 	#else
 		// Get joystick values and transmit them to receiver
 		joystick->update();
+		radio.stopListening();
 		radio.write(&data, sizeof(UFODataPacket));
 	#endif
 	#if defined(DEBUG_ON)
+		// Print out current data and slow down printing rate
+		Serial.print(data.throttle, DEC); Serial.print(' ');
+		Serial.print(data.yaw,      DEC); Serial.print(' ');
+		Serial.print(data.pitch,    DEC); Serial.print(' ');
+		Serial.print(data.roll,     DEC); Serial.print(' ');
+		Serial.print(data.AUX1,     DEC); Serial.print(' ');
+		Serial.println(data.AUX2,   DEC);
 		delay(1000);
 	#endif
 }
@@ -125,6 +133,8 @@ void configRadio(RF24& radio) {
 	radio.setDataRate(RF24_250KBPS);
 	radio.setPayloadSize(sizeof(UFODataPacket));
 	radio.setPALevel(RF24_PA_MAX);
+	radio.setChannel(CHANNEL_24G);
+	radio.setAddressWidth(5);
 
 	// Receiver listens, transmitter talks. Also receiver will try to recognize
 	// lost signal
@@ -134,7 +144,6 @@ void configRadio(RF24& radio) {
 		lastComm = millis();
 	#else
 		radio.openWritingPipe(PIPE_NUM);
-		radio.stopListening();
 	#endif
 }
 
@@ -164,10 +173,6 @@ void UFOtoPPM(UFODataPacket& data, volatile int* ppm) {
 }
 
 void configPPM(volatile int* ppm) {
-	#if !defined(IS_RECEIVER)
-		return;
-	#endif
-
 	// Set 'safe' values on boot since we use interrupts for PPM comm
 	data.clear();
 	UFOtoPPM(data, ppm);

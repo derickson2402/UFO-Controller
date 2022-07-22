@@ -26,9 +26,9 @@ Project URL
 // Configure the following before including in any projects
 
 // SimpleFLR:
-#define LEFT_PIN        4  // Digital pin for left button
-#define RIGHT_PIN       5  // Digital pin for right button
-#define FORWARD_PIN     6  // Digital pin for forward button
+#define RIGHT_PIN       4  // Digital pin for right button
+#define FORWARD_PIN     5  // Digital pin for forward button
+#define LEFT_PIN        6  // Digital pin for left button
 #define THROTTLE_PIN    A0 // Analog pin for throttle potentiometer
 #define ROTATE_SPEED    25 // Left/Right rotation speed from 0-127
 #define MOVE_SPEED      25 // Forward movement speed from 0-127
@@ -85,24 +85,24 @@ protected:
 class SimpleFLR : public Joystick {
 public:
 	explicit SimpleFLR(UFODataPacket & data) : Joystick(data) {
-		pinMode(LEFT_PIN, INPUT_PULLUP);
-		pinMode(RIGHT_PIN, INPUT_PULLUP);
+		pinMode(LEFT_PIN,    INPUT_PULLUP);
+		pinMode(RIGHT_PIN,   INPUT_PULLUP);
 		pinMode(FORWARD_PIN, INPUT_PULLUP);
 	}
 	UFODataPacket update() {
 		// Calculate values from button presses
 		byte newYaw = 127;
-		static uint8_t left = digitalRead(LEFT_PIN);
-		static uint8_t right = digitalRead(RIGHT_PIN);
+		byte left = digitalRead(LEFT_PIN);
+		byte right = digitalRead(RIGHT_PIN);
 		if (left == right) {
 			newYaw = 127; // Don't move if none or both buttons pressed
 		} else if (left == LOW) {
 			newYaw = 127 - ROTATE_SPEED; // Left button pressed
 		} else {
-			newYaw = 152 - ROTATE_SPEED; // Right button pressed
+			newYaw = 127 + ROTATE_SPEED; // Right button pressed
 		}
 		byte newPitch = (digitalRead(FORWARD_PIN) == LOW)
-				? (127 + MOVE_SPEED) : 127;
+				? (127 - MOVE_SPEED) : 127;
 
 		// Update the data packet
 		data.throttle = map(analogRead(THROTTLE_PIN), 0, 1024, 0, 255);
