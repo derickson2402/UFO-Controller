@@ -37,6 +37,7 @@ Project URL
 
 #include "Joystick.h"
 #include <SPI.h>
+#include <nRF24L01.h>
 #include <RF24.h>
 #include <util/atomic.h>
 #if defined(DEBUG_ON)
@@ -79,15 +80,15 @@ unsigned long lastComm;   // Time in ms of last packet received from transmitter
 #endif
 
 void setup() {
-	configRadio(radio);
 	#if defined(DEBUG_ON)
 		Serial.begin(115200);
+		while (!Serial) { /* Make sure serial comms are up */}
 		printf_begin();
-		radio.printPrettyDetails();
 	#endif
-	#if defined(IS_RECEIVER)
+	configRadio(radio);
+	#if defined(IS_RECEIVER) && !defined(DEBUG_ON)
 		configPPM(ppm);
-	#else
+	#elif !defined(IS_RECEIVER)
 		Wire.begin();
 	#endif
 }
@@ -97,14 +98,16 @@ void loop() {
 		// Keep polling radio, timer interrupt will handle PPM to MultiWii
 		while (radio.available()) {
 			radio.read(&data,sizeof(UFODataPacket));
-			lastComm = millis();
+			// lastComm = millis();
 		}
-		// Check if we possibly lost connection after ~1 second
-		// TODO: See #4, we need a safer way to handle comm loss
-		if (millis() - lastComm > 1000) {
-			data.clear();
-			UFOtoPPM(data, ppm);
-		}
+		#if !defined(DEBUG_ON)
+			// Check if we possibly lost connection after ~1 second
+			// TODO: See #4, we need a safer way to handle comm loss
+			if (millis() - lastComm > 1000) {
+				data.clear();
+				UFOtoPPM(data, ppm);
+			}
+		#endif
 	#else
 		// Get joystick values and transmit them to receiver
 		joystick->update();
@@ -126,7 +129,12 @@ void loop() {
 /*############################################################################*/
 
 void configRadio(RF24& radio) {
-	radio.begin();
+	if (!radio.begin()) {
+		while (true) {
+			Serial.println(F("radio hardware not responding"));
+			delay(2000);
+		}
+	}
 	// We don't want ACK since we are broadcasting packets quickly and won't
 	// re-send them (think UDP on IP networks)
 	radio.setAutoAck(false);
@@ -144,6 +152,11 @@ void configRadio(RF24& radio) {
 		lastComm = millis();
 	#else
 		radio.openWritingPipe(PIPE_NUM);
+		radio.stopListening();
+	#endif
+	#if defined(DEBUG_ON)
+		// Run after Serial and radio are up to confirm mode
+		radio.printPrettyDetails();
 	#endif
 }
 
